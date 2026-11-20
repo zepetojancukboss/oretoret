@@ -1,6 +1,6 @@
-www.search.aol.ca
-www.search.azkware.net
-www.search.biboumail.fr
+https://search.aol.ca
+https://search.azkware.net
+https://search.biboumail.fr
 www.ecosia.org
 www.gruble.de
 www.startpage.com
