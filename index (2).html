@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notepad++ Web Viewer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: JetBrains Mono / Consolas fallback & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Kustomisasi gaya khusus Notepad++ agar presisi dan autentik */
+        :root {
+            --npp-bg: #FFFFFF;
+            --npp-text: #000000;
+            --npp-gutter-bg: #E4E4E4;
+            --npp-gutter-text: #808080;
+            --npp-gutter-border: #C8C8C8;
+            --npp-active-line: #E8E8FF;
+            --npp-toolbar-bg: #F0F0F0;
+            --npp-border: #D0D0D0;
+            --npp-tab-inactive: #E1E1E1;
+            --npp-tab-active: #FFFFFF;
+            --npp-tab-accent: #FA8000; /* Garis oranye khas tab aktif Notepad++ */
+            --npp-status-bg: #F0F0F0;
+            --npp-link-color: #0000FF;
+            --npp-link-hover-bg: rgba(0, 0, 255, 0.08);
+            --npp-find-highlight: #FFFF00;
+        }
+
+        .dark-theme {
+            --npp-bg: #1E1E1E;
+            --npp-text: #DCDCDC;
+            --npp-gutter-bg: #2A2A2A;
+            --npp-gutter-text: #858585;
+            --npp-gutter-border: #3E3E3E;
+            --npp-active-line: #2C2C3A;
+            --npp-toolbar-bg: #2D2D2D;
+            --npp-border: #404040;
+            --npp-tab-inactive: #252526;
+            --npp-tab-active: #1E1E1E;
+            --npp-tab-accent: #FF9933;
+            --npp-status-bg: #252526;
+            --npp-link-color: #4EA1FF;
+            --npp-link-hover-bg: rgba(78, 161, 255, 0.15);
+            --npp-find-highlight: #665500;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--npp-toolbar-bg);
+            color: var(--npp-text);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* Area Editor Monospace */
+        .editor-font {
+            font-family: 'Consolas', 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 21px;
+        }
+
+        .npp-window-header {
+            background: linear-gradient(to bottom, #FFFFFF, #E8EEF5);
+            border-bottom: 1px solid #B8C4D0;
+            color: #1E293B;
+        }
+        .dark-theme .npp-window-header {
+            background: linear-gradient(to bottom, #333333, #262626);
+            border-bottom: 1px solid #404040;
+            color: #E2E8F0;
+        }
+
+        .npp-toolbar {
+            background-color: var(--npp-toolbar-bg);
+            border-bottom: 1px solid var(--npp-border);
+        }
+
+        .npp-btn {
+            border: 1px solid transparent;
+            border-radius: 4px;
+            transition: all 0.12s ease;
+        }
+        .npp-btn:hover {
+            background-color: rgba(128, 128, 128, 0.15);
+            border-color: rgba(128, 128, 128, 0.3);
+        }
+        .npp-btn:active, .npp-btn.active {
+            background-color: rgba(128, 128, 128, 0.25);
+            border-color: rgba(128, 128, 128, 0.45);
+        }
+
+        /* Tab Bar */
+        .npp-tab-bar {
+            background-color: var(--npp-toolbar-bg);
+            border-bottom: 1px solid var(--npp-border);
+        }
+        .npp-tab {
+            background-color: var(--npp-tab-inactive);
+            border-right: 1px solid var(--npp-border);
+            border-top: 3px solid transparent;
+            color: var(--npp-text);
+            opacity: 0.78;
+        }
+        .npp-tab.active {
+            background-color: var(--npp-tab-active);
+            border-top: 3px solid var(--npp-tab-accent);
+            opacity: 1;
+            font-weight: 500;
+            position: relative;
+        }
+        .npp-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: var(--npp-tab-active);
+        }
+
+        /* Editor Container & Gutter */
+        .npp-editor-wrapper {
+            background-color: var(--npp-bg);
+            color: var(--npp-text);
+            flex: 1;
+            overflow: auto;
+            position: relative;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .npp-code-table {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .npp-line-row {
+            display: table-row;
+        }
+        .npp-line-row.active-line .npp-line-content {
+            background-color: var(--npp-active-line);
+        }
+        .npp-line-row.active-line .npp-line-num {
+            color: var(--npp-text);
+            font-weight: 600;
+        }
+
+        .npp-line-num {
+            display: table-cell;
+            width: 1%;
+            min-width: 48px;
+            padding: 0 10px 0 8px;
+            text-align: right;
+            background-color: var(--npp-gutter-bg);
+            color: var(--npp-gutter-text);
+            border-right: 1px solid var(--npp-gutter-border);
+            user-select: none;
+            vertical-align: top;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+        }
+
+        .npp-line-content {
+            display: table-cell;
+            padding: 0 16px 0 10px;
+            white-space: pre;
+            vertical-align: top;
+            user-select: text;
+            -webkit-user-select: text;
+            cursor: text;
+        }
+
+        .word-wrap-enabled .npp-line-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* Styling Link Khusus agar berwarna biru, mudah ditekan lama & disalin */
+        .npp-detected-link {
+            color: var(--npp-link-color);
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 2px;
+            border-radius: 3px;
+            padding: 0 2px;
+            margin: 0 -2px;
+            cursor: pointer;
+            user-select: text;
+            -webkit-user-select: text;
+            -webkit-touch-callout: default; /* Mengizinkan menu tekan lama bawaan mobile jika diinginkan */
+            transition: background-color 0.15s ease, transform 0.1s ease;
+            display: inline;
+        }
+        .npp-detected-link:hover {
+            background-color: var(--npp-link-hover-bg);
+        }
+        .npp-detected-link.pressing {
+            background-color: rgba(0, 102, 255, 0.25);
+            outline: 1px dashed var(--npp-link-color);
+        }
+
+        /* Highlight hasil pencarian */
+        .npp-search-match {
+            background-color: var(--npp-find-highlight);
+            color: inherit;
+            border-radius: 2px;
+            outline: 1px solid #D4A017;
+        }
+
+        /* Status Bar */
+        .npp-status-bar {
+            background-color: var(--npp-status-bg);
+            border-top: 1px solid var(--npp-border);
+            font-size: 12px;
+            color: var(--npp-text);
+        }
+        .npp-status-cell {
+            border-left: 1px solid var(--npp-border);
+            padding: 2px 10px;
+            white-space: nowrap;
+        }
+
+        /* Custom Scrollbar bergaya desktop klasik */
+        .npp-editor-wrapper::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+        .npp-editor-wrapper::-webkit-scrollbar-track {
+            background: var(--npp-gutter-bg);
+        }
+        .npp-editor-wrapper::-webkit-scrollbar-thumb {
+            background: #B0B0B0;
+            border: 2px solid var(--npp-gutter-bg);
+            border-radius: 6px;
+        }
+        .dark-theme .npp-editor-wrapper::-webkit-scrollbar-thumb {
+            background: #555555;
+        }
+
+        /* Animasi Popup Salin Link */
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.92) translateY(6px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-pop {
+            animation: popIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body id="appBody">
+
+    <!-- Input File Tersembunyi -->
+    <input type="file" id="fileInput" accept=".txt,.log,.md,.csv,.json,.xml,.ini,.cfg,text/plain" class="hidden" multiple>
+
+    <!-- 1. Window Title Bar ala Notepad++ -->
+    <header class="npp-window-header px-3 py-1.5 flex items-center justify-between text-xs sm:text-sm select-none shrink-0">
+        <div class="flex items-center gap-2 overflow-hidden">
+            <!-- Ikon Bunglon / Pensil khas Notepad++ SVG -->
+            <div class="w-5 h-5 rounded bg-emerald-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                    <path d="m15 5 4 4"/>
+                </svg>
+            </div>
+            <span id="windowTitle" class="font-medium truncate">*welcome.txt - Notepad++ Web Viewer</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-[11px] opacity-80 shrink-0">
+            <span id="linkCountBadge" class="px-2 py-0.5 rounded-full bg-blue-600/15 text-blue-700 dark:text-blue-300 font-medium">
+                0 Link Terdeteksi
+            </span>
+        </div>
+    </header>
+
+    <!-- 2. Toolbar Utama Notepad++ -->
+    <div class="npp-toolbar px-2 py-1.5 flex flex-wrap items-center gap-1 sm:gap-1.5 shrink-0">
+        <!-- Muat Ulang ./file.txt -->
+        <button id="btnReloadSameFolder" class="npp-btn px-2.5 py-1.5 flex items-center gap-1.5 text-xs sm:text-sm font-medium cursor-pointer text-emerald-700 dark:text-emerald-400" title="Muat ulang ./file.txt dari folder yang sama">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <span>Muat Ulang file.txt</span>
+        </button>
+
+        <!-- Buka File -->
+        <button id="btnOpenFile" class="npp-btn px-2.5 py-1.5 flex items-center gap-1.5 text-xs sm:text-sm font-medium cursor-pointer" title="Buka file .txt dari perangkat (Ctrl+O)">
+            <i data-lucide="folder-open" class="w-4 h-4 text-amber-600"></i>
+            <span>Buka .txt</span>
+        </button>
+
+        <!-- Pilih Folder (File System Access API fallback) -->
+        <button id="btnPickFolder" class="npp-btn p-1.5 flex items-center gap-1 text-xs cursor-pointer" title="Pilih folder kerja yang berisi file.txt">
+            <i data-lucide="folder-search" class="w-4 h-4 text-amber-500"></i>
+            <span class="hidden md:inline">Pilih Folder</span>
+        </button>
+
+        <!-- File Baru / Sample -->
+        <button id="btnNewSample" class="npp-btn p-1.5 flex items-center gap-1 text-xs cursor-pointer" title="Muat Contoh Teks dengan Link">
+            <i data-lucide="file-plus" class="w-4 h-4 text-emerald-600"></i>
+            <span class="hidden lg:inline">Contoh</span>
+        </button>
+
+        <div class="h-5 w-[1px] bg-gray-400/40 mx-0.5"></div>
+
+        <!-- Cari Teks (Find) -->
+        <button id="btnToggleFind" class="npp-btn p-1.5 flex items-center gap-1 text-xs cursor-pointer" title="Cari teks (Ctrl+F)">
+            <i data-lucide="search" class="w-4 h-4 text-blue-600"></i>
+            <span class="hidden sm:inline">Cari</span>
+        </button>
+
+        <!-- Word Wrap Toggle -->
+        <button id="btnWordWrap" class="npp-btn active p-1.5 flex items-center gap-1 text-xs cursor-pointer" title="Bungkus Baris (Word Wrap)">
+            <i data-lucide="wrap-text" class="w-4 h-4 text-purple-600"></i>
+            <span class="hidden sm:inline">Wrap</span>
+        </button>
+
+        <!-- Daftar Semua Link -->
+        <button id="btnShowAllLinks" class="npp-btn p-1.5 flex items-center gap-1 text-xs cursor-pointer" title="Lihat & Salin Semua Link dalam File">
+            <i data-lucide="link" class="w-4 h-4 text-blue-600"></i>
+            <span class="hidden sm:inline">Semua Link</span>
+        </button>
+
+        <div class="h-5 w-[1px] bg-gray-400/40 mx-0.5"></div>
+
+        <!-- Zoom In / Out -->
+        <button id="btnZoomOut" class="npp-btn p-1.5 cursor-pointer" title="Perkecil Teks">
+            <i data-lucide="zoom-out" class="w-4 h-4"></i>
+        </button>
+        <button id="btnZoomIn" class="npp-btn p-1.5 cursor-pointer" title="Perbesar Teks">
+            <i data-lucide="zoom-in" class="w-4 h-4"></i>
+        </button>
+
+        <!-- Spacer -->
+        <div class="flex-1"></div>
+
+        <!-- Dark Mode Toggle -->
+        <button id="btnThemeToggle" class="npp-btn px-2 py-1.5 flex items-center gap-1.5 text-xs cursor-pointer" title="Ubah Tema Terang / Gelap Notepad++">
+            <i id="themeIcon" data-lucide="moon" class="w-4 h-4 text-slate-600"></i>
+            <span id="themeLabel" class="hidden sm:inline">Mode Gelap</span>
+        </button>
+    </div>
+
+    <!-- Search Bar (Tersembunyi secara default, muncul saat tombol Cari ditekan) -->
+    <div id="findBar" class="hidden npp-toolbar px-3 py-1.5 flex items-center gap-2 border-b text-xs shrink-0">
+        <i data-lucide="search" class="w-3.5 h-3.5 opacity-70"></i>
+        <input type="text" id="findInput" placeholder="Ketik kata kunci pencarian..." class="px-2 py-1 rounded border border-gray-400/50 bg-white dark:bg-neutral-800 text-black dark:text-white focus:outline-none focus:border-blue-500 w-48 sm:w-64">
+        <span id="findCounter" class="opacity-75 text-[11px]">0 hasil</span>
+        <button id="btnCloseFind" class="ml-auto p-1 hover:bg-gray-500/20 rounded cursor-pointer" title="Tutup Pencarian">
+            <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+    </div>
+
+    <!-- Banner Informasi & Panduan Akses ./file.txt (Muncul otomatis jika file:// atau gagal fetch) -->
+    <div id="localFolderBanner" class="hidden bg-amber-50 dark:bg-amber-950/60 border-b border-amber-300 dark:border-amber-800 px-3 py-2 text-xs text-amber-950 dark:text-amber-100 shrink-0">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="flex items-start gap-2">
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"></i>
+                <div class="space-y-1">
+                    <p id="bannerTitle" class="font-semibold">Tidak dapat membaca otomatis <code>./file.txt</code> secara langsung.</p>
+                    <p id="bannerDescription" class="opacity-90 leading-relaxed">
+                        Browser memblokir pembacaan file otomatis melalui protokol <code>file://</code> demi keamanan. Anda dapat memilih folder/file secara manual di samping, atau jalankan server lokal singkat di folder ini (misalnya: <code class="px-1 py-0.5 rounded bg-amber-200/70 dark:bg-amber-900 font-mono">python -m http.server</code> atau ekstensi <strong>VS Code Live Server</strong>).
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                <button id="btnBannerPickFolder" class="bg-amber-600 hover:bg-amber-700 text-white font-medium px-2.5 py-1.5 rounded-md flex items-center gap-1 shadow-sm cursor-pointer transition">
+                    <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+                    <span>Pilih Folder / file.txt</span>
+                </button>
+                <button id="btnDismissBanner" class="p-1.5 rounded-md hover:bg-amber-200/60 dark:hover:bg-amber-800/60 text-amber-800 dark:text-amber-200 cursor-pointer" title="Tutup pemberitahuan">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Tab Bar Dokumen -->
+    <div id="tabBar" class="npp-tab-bar flex items-center overflow-x-auto text-xs shrink-0">
+        <!-- Tab akan dirender secara dinamis oleh JavaScript -->
+    </div>
+
+    <!-- 4. Area Utama Editor Notepad++ (Nomor Baris + Konten Teks) -->
+    <main id="editorWrapper" class="npp-editor-wrapper word-wrap-enabled editor-font">
+        <!-- Overlay Drag & Drop -->
+        <div id="dropOverlay" class="hidden fixed inset-0 z-40 bg-blue-600/20 backdrop-blur-[2px] border-4 border-dashed border-blue-600 m-3 rounded-xl flex flex-col items-center justify-center pointer-events-none">
+            <div class="bg-white dark:bg-neutral-800 px-6 py-4 rounded-xl shadow-xl flex flex-col items-center gap-2 text-center">
+                <i data-lucide="file-text" class="w-10 h-10 text-blue-600"></i>
+                <p class="font-semibold text-base text-slate-800 dark:text-white">Lepaskan file .txt di sini</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Isi dokumen akan langsung divisualisasikan</p>
+            </div>
+        </div>
+
+        <!-- Tabel Baris Kode / Teks -->
+        <div id="codeContainer" class="npp-code-table" role="textbox" aria-readonly="true">
+            <!-- Baris-baris teks dirender di sini -->
+        </div>
+    </main>
+
+    <!-- 5. Status Bar Bawah Khas Notepad++ -->
+    <footer class="npp-status-bar flex items-center justify-between overflow-x-auto shrink-0 select-none">
+        <div class="px-3 py-0.5 truncate opacity-85 flex items-center gap-2">
+            <span>Normal text file</span>
+            <span class="hidden md:inline text-[11px] opacity-70">• Tekan lama / klik link biru untuk menyalin URL</span>
+        </div>
+        <div class="flex items-center shrink-0">
+            <div class="npp-status-cell" id="statusLength">length : 0 &nbsp; lines : 0</div>
+            <div class="npp-status-cell" id="statusCursor">Ln : 1 &nbsp; Col : 1</div>
+            <div class="npp-status-cell hidden sm:block">Windows (CR LF)</div>
+            <div class="npp-status-cell">UTF-8</div>
+        </div>
+    </footer>
+
+    <!-- Popup Aksi Link (Muncul saat Link ditekan lama / diklik) -->
+    <div id="linkActionPopup" class="hidden fixed z-50 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-600 rounded-xl shadow-2xl p-3 max-w-[92vw] w-80 animate-pop">
+        <div class="flex items-start justify-between gap-2 mb-2">
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                <i data-lucide="link-2" class="w-4 h-4"></i>
+                <span>Tautan Terdeteksi</span>
+            </div>
+            <button id="btnCloseLinkPopup" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5 rounded cursor-pointer">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+        
+        <!-- Kotak URL yang bisa diseleksi manual juga -->
+        <div class="bg-gray-100 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-lg p-2 mb-3">
+            <input type="text" id="popupUrlInput" readonly class="w-full bg-transparent text-xs font-mono text-blue-700 dark:text-blue-300 focus:outline-none select-all">
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="btnCopyUrlAction" class="flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-medium py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                <span>Salin Link</span>
+            </button>
+            <a id="btnOpenUrlExternal" href="#" target="_blank" rel="noopener noreferrer" class="bg-gray-200 hover:bg-gray-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-gray-800 dark:text-gray-100 text-xs font-medium py-2 px-3 rounded-lg flex items-center justify-center gap-1 transition" title="Buka di tab baru">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                <span>Buka</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Modal Daftar Semua Link -->
+    <div id="allLinksModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-600 rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col animate-pop">
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-neutral-700 flex items-center justify-between">
+                <div class="flex items-center gap-2 font-semibold text-sm text-slate-800 dark:text-white">
+                    <i data-lucide="list" class="w-4 h-4 text-blue-600"></i>
+                    <span id="modalLinksTitle">Daftar Link dalam Dokumen</span>
+                </div>
+                <button id="btnCloseAllLinksModal" class="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-neutral-700 text-slate-600 dark:text-slate-300 cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div id="allLinksList" class="p-3 overflow-y-auto space-y-2 flex-1 text-xs">
+                <!-- Item link dirender di sini -->
+            </div>
+            <div class="px-4 py-2.5 border-t border-gray-200 dark:border-neutral-700 flex justify-between items-center bg-gray-50 dark:bg-neutral-900/50 rounded-b-xl">
+                <button id="btnCopyAllLinks" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg flex items-center gap-1.5 cursor-pointer">
+                    <i data-lucide="copy-check" class="w-3.5 h-3.5"></i>
+                    <span>Salin Semua Link</span>
+                </button>
+                <button id="btnCloseModalFooter" class="text-xs text-gray-600 dark:text-gray-300 hover:underline px-2 py-1 cursor-pointer">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifikasi Salin Berhasil -->
+    <div id="toastNotification" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 opacity-0 pointer-events-none transition-opacity duration-200">
+        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+        <span id="toastMessage">Link berhasil disalin ke clipboard!</span>
+    </div>
+
+    <script>
+        /**
+         * Notepad++ Web Viewer & Link Extractor
+         * Aplikasi satu file untuk membaca file .txt dengan tampilan autentik Notepad++,
+         * deteksi URL otomatis berwarna biru, serta dukungan tekan lama (long-press) & klik untuk menyalin link.
+         */
+
+        // --- Konten Contoh Default ---
+        const DEFAULT_SAMPLE_CONTENT = `====================================================================
+SELAMAT DATANG DI NOTEPAD++ WEB VIEWER
+====================================================================
+
+Aplikasi ini dirancang untuk membaca file .txt lokal dengan visualisasi
+persis seperti editor Notepad++ lengkap dengan nomor baris, indikator 
+baris aktif, tab dokumen, dan status bar.
+
+CARA MENGGUNAKAN:
+1. Klik tombol "Buka .txt" di toolbar atas untuk memilih file dari perangkat.
+2. Atau seret & jatuhkan (drag-and-drop) file .txt langsung ke layar ini.
+3. Semua alamat link di dalam teks otomatis berubah menjadi warna BIRU.
+4. Tekan lama (long-press) atau klik pada link biru di bawah untuk memunculkan
+   menu "Salin Link" tanpa membuka halaman secara tidak sengaja!
+
+CONTOH LINK YANG TERDETEKSI OTOMATIS:
+- Halaman Utama Google: https://www.google.com
+- Dokumentasi Web MDN: https://developer.mozilla.org/id/
+- Repositori GitHub: https://github.com
+- Contoh URL tanpa protokol: www.wikipedia.org
+- Link dengan parameter panjang: https://example.com/artikel?id=2026&kategori=teknologi&ref=notepad
+
+Tips: Anda juga dapat menekan tombol "Semua Link" di toolbar atas untuk 
+melihat daftar seluruh URL yang ada di dalam file .txt sekaligus.
+====================================================================`;
+
+        // --- State Aplikasi ---
+        const state = {
+            tabs: [
+                {
+                    id: 'tab-welcome',
+                    name: 'welcome.txt',
+                    content: DEFAULT_SAMPLE_CONTENT,
+                    activeLine: 1,
+                    activeCol: 1
+                }
+            ],
+            activeTabId: 'tab-welcome',
+            isDark: false,
+            isWordWrap: true,
+            fontSize: 14,
+            searchQuery: '',
+            currentDetectedLinks: [],
+            selectedPopupUrl: '',
+            directoryHandle: null // Menyimpan referensi folder jika dipilih lewat showDirectoryPicker
+        };
+
+        // --- Referensi Elemen DOM ---
+        const els = {
+            appBody: document.getElementById('appBody'),
+            fileInput: document.getElementById('fileInput'),
+            windowTitle: document.getElementById('windowTitle'),
+            linkCountBadge: document.getElementById('linkCountBadge'),
+            tabBar: document.getElementById('tabBar'),
+            editorWrapper: document.getElementById('editorWrapper'),
+            codeContainer: document.getElementById('codeContainer'),
+            dropOverlay: document.getElementById('dropOverlay'),
+            statusLength: document.getElementById('statusLength'),
+            statusCursor: document.getElementById('statusCursor'),
+            findBar: document.getElementById('findBar'),
+            findInput: document.getElementById('findInput'),
+            findCounter: document.getElementById('findCounter'),
+            localFolderBanner: document.getElementById('localFolderBanner'),
+            bannerTitle: document.getElementById('bannerTitle'),
+            bannerDescription: document.getElementById('bannerDescription'),
+            linkActionPopup: document.getElementById('linkActionPopup'),
+            popupUrlInput: document.getElementById('popupUrlInput'),
+            btnOpenUrlExternal: document.getElementById('btnOpenUrlExternal'),
+            allLinksModal: document.getElementById('allLinksModal'),
+            allLinksList: document.getElementById('allLinksList'),
+            modalLinksTitle: document.getElementById('modalLinksTitle'),
+            toastNotification: document.getElementById('toastNotification'),
+            toastMessage: document.getElementById('toastMessage')
+        };
+
+        // --- Utilitas Salin ke Clipboard (Kompatibel IFrame & Mobile) ---
+        function copyTextToClipboard(text) {
+            try {
+                const tempInput = document.createElement('textarea');
+                tempInput.value = text;
+                tempInput.style.position = 'fixed';
+                tempInput.style.left = '-9999px';
+                tempInput.style.top = '0';
+                document.body.appendChild(tempInput);
+                tempInput.focus();
+                tempInput.select();
+                tempInput.setSelectionRange(0, 99999);
+                const successful = document.execCommand('copy');
+                document.body.removeChild(tempInput);
+
+                if (successful) {
+                    showToast(`Disalin: ${text.length > 38 ? text.substring(0, 38) + '...' : text}`);
+                } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showToast('Link berhasil disalin ke clipboard!');
+                    });
+                }
+            } catch (err) {
+                console.error('Gagal menyalin teks:', err);
+                showToast('Gagal menyalin otomatis. Silakan salin manual dari kotak.');
+            }
+        }
+
+        let toastTimer = null;
+        function showToast(message) {
+            els.toastMessage.textContent = message;
+            els.toastNotification.classList.remove('opacity-0');
+            els.toastNotification.classList.add('opacity-100');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                els.toastNotification.classList.remove('opacity-100');
+                els.toastNotification.classList.add('opacity-0');
+            }, 2400);
+        }
+
+        // --- Mendapatkan Tab Aktif ---
+        function getActiveTab() {
+            return state.tabs.find(t => t.id === state.activeTabId) || state.tabs[0];
+        }
+
+        // --- Parsing Teks & Deteksi URL Otomatis ---
+        // Regex mendeteksi http://, https://, dan www. dengan akurat tanpa menangkap tanda baca penutup berlebih
+        const URL_REGEX = /((?:https?:\/\/|www\.)[^\s<>"'`)\]]+)/gi;
+
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function highlightSearchText(escapedText, query) {
+            if (!query) return escapedText;
+            const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${safeQuery})`, 'gi');
+            return escapedText.replace(regex, '<mark class="npp-search-match">$1</mark>');
+        }
+
+        function formatLineWithLinks(rawLine, lineNumber, detectedLinksSet) {
+            if (!rawLine) return ' '; // Spasi agar baris kosong tetap memiliki tinggi penuh
+
+            let resultHtml = '';
+            let lastIndex = 0;
+            let match;
+
+            // Reset regex index
+            URL_REGEX.lastIndex = 0;
+
+            while ((match = URL_REGEX.exec(rawLine)) !== null) {
+                const startIndex = match.index;
+                let urlText = match[0];
+
+                // Bersihkan tanda baca di akhir URL seperti titik atau koma kalimat
+                let trailingPunctuation = '';
+                while (/[.,;:!?]$/.test(urlText)) {
+                    trailingPunctuation = urlText.slice(-1) + trailingPunctuation;
+                    urlText = urlText.slice(0, -1);
+                }
+
+                // Teks biasa sebelum URL
+                const beforeText = rawLine.slice(lastIndex, startIndex);
+                resultHtml += highlightSearchText(escapeHtml(beforeText), state.searchQuery);
+
+                // Simpan URL ke daftar terdeteksi
+                const normalizedHref = urlText.toLowerCase().startsWith('www.') ? 'https://' + urlText : urlText;
+                detectedLinksSet.add(urlText);
+
+                // Render elemen link biru yang aman dari navigasi langsung & ramah long-press
+                const safeDisplayUrl = highlightSearchText(escapeHtml(urlText), state.searchQuery);
+                const safeAttrUrl = escapeHtml(urlText);
+                const safeHref = escapeHtml(normalizedHref);
+
+                resultHtml += `<span class="npp-detected-link" data-url="${safeAttrUrl}" data-href="${safeHref}" role="button" tabindex="0" title="Tekan lama atau klik untuk menyalin link">${safeDisplayUrl}</span>`;
+
+                // Tambahkan tanda baca yang dipisahkan tadi
+                if (trailingPunctuation) {
+                    resultHtml += highlightSearchText(escapeHtml(trailingPunctuation), state.searchQuery);
+                }
+
+                lastIndex = startIndex + match[0].length;
+            }
+
+            // Sisa teks setelah URL terakhir
+            const remainingText = rawLine.slice(lastIndex);
+            resultHtml += highlightSearchText(escapeHtml(remainingText), state.searchQuery);
+
+            return resultHtml;
+        }
+
+        // --- Render Tab Bar ---
+        function renderTabs() {
+            els.tabBar.innerHTML = '';
+            state.tabs.forEach(tab => {
+                const isActive = tab.id === state.activeTabId;
+                const tabEl = document.createElement('div');
+                tabEl.className = `npp-tab px-3 py-1.5 flex items-center gap-2 cursor-pointer shrink-0 select-none ${isActive ? 'active' : ''}`;
+                tabEl.innerHTML = `
+                    <i data-lucide="file-text" class="w-3.5 h-3.5 ${isActive ? 'text-blue-600' : 'opacity-60'}"></i>
+                    <span class="max-w-[160px] truncate">${escapeHtml(tab.name)}</span>
+                    ${state.tabs.length > 1 ? `
+                        <button class="close-tab-btn ml-1 p-0.5 rounded hover:bg-red-500 hover:text-white opacity-60 hover:opacity-100 transition" data-tab-id="${tab.id}" title="Tutup Tab">
+                            <i data-lucide="x" class="w-3 h-3"></i>
+                        </button>
+                    ` : ''}
+                `;
+
+                tabEl.addEventListener('click', (e) => {
+                    if (e.target.closest('.close-tab-btn')) return;
+                    state.activeTabId = tab.id;
+                    renderAll();
+                });
+
+                const closeBtn = tabEl.querySelector('.close-tab-btn');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        closeTab(tab.id);
+                    });
+                }
+
+                els.tabBar.appendChild(tabEl);
+            });
+            lucide.createIcons();
+        }
+
+        function closeTab(tabId) {
+            const idx = state.tabs.findIndex(t => t.id === tabId);
+            if (idx === -1) return;
+            state.tabs.splice(idx, 1);
+            if (state.activeTabId === tabId) {
+                const nextTab = state.tabs[Math.max(0, idx - 1)];
+                state.activeTabId = nextTab.id;
+            }
+            renderAll();
+        }
+
+        // --- Render Utama Isi Editor ---
+        function renderEditor() {
+            const activeTab = getActiveTab();
+            if (!activeTab) return;
+
+            els.windowTitle.textContent = `${activeTab.name} - Notepad++ Web Viewer`;
+
+            // Pecah berdasarkan baris (mendukung CRLF \r\n dan LF \n)
+            const lines = activeTab.content.split(/\r?\n/);
+            const detectedLinksSet = new Set();
+            let searchMatchCount = 0;
+
+            if (state.searchQuery) {
+                const safeQuery = state.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const matches = activeTab.content.match(new RegExp(safeQuery, 'gi'));
+                searchMatchCount = matches ? matches.length : 0;
+                els.findCounter.textContent = `${searchMatchCount} hasil`;
+            } else {
+                els.findCounter.textContent = `0 hasil`;
+            }
+
+            // Bangun HTML baris-baris secara efisien menggunakan array join
+            const rowsHtml = new Array(lines.length);
+            for (let i = 0; i < lines.length; i++) {
+                const lineNum = i + 1;
+                const isLineActive = lineNum === activeTab.activeLine;
+                const formattedContent = formatLineWithLinks(lines[i], lineNum, detectedLinksSet);
+
+                rowsHtml[i] = `<div class="npp-line-row ${isLineActive ? 'active-line' : ''}" data-line="${lineNum}">` +
+                    `<div class="npp-line-num">${lineNum}</div>` +
+                    `<div class="npp-line-content">${formattedContent}</div>` +
+                    `</div>`;
+            }
+
+            els.codeContainer.innerHTML = rowsHtml.join('');
+
+            // Simpan daftar link unik yang terdeteksi
+            state.currentDetectedLinks = Array.from(detectedLinksSet);
+            els.linkCountBadge.textContent = `${state.currentDetectedLinks.length} Link Terdeteksi`;
+
+            // Update Status Bar
+            updateStatusBar(activeTab.content.length, lines.length, activeTab.activeLine, activeTab.activeCol);
+
+            // Pasang interaksi klik baris aktif dan interaksi long-press/klik pada setiap link
+            attachEditorInteractions();
+        }
+
+        function updateStatusBar(charLength, lineCount, ln, col) {
+            els.statusLength.innerHTML = `length : ${charLength.toLocaleString('id-ID')} &nbsp; lines : ${lineCount.toLocaleString('id-ID')}`;
+            els.statusCursor.innerHTML = `Ln : ${ln} &nbsp; Col : ${col}`;
+        }
+
+        // --- Interaksi Baris Aktif & Long-Press / Klik Link ---
+        function openLinkPopup(linkEl, clientX, clientY) {
+            const rawUrl = linkEl.getAttribute('data-url') || '';
+            const hrefUrl = linkEl.getAttribute('data-href') || rawUrl;
+            state.selectedPopupUrl = rawUrl;
+
+            els.popupUrlInput.value = rawUrl;
+            els.btnOpenUrlExternal.setAttribute('href', hrefUrl);
+            els.linkActionPopup.classList.remove('hidden');
+
+            // Hitung posisi popup agar tetap berada di dalam viewport
+            const rect = linkEl.getBoundingClientRect();
+            const popupWidth = els.linkActionPopup.offsetWidth || 320;
+            const popupHeight = els.linkActionPopup.offsetHeight || 135;
+
+            let left = (typeof clientX === 'number' ? clientX : rect.left) - 20;
+            let top = rect.bottom + 8;
+
+            if (left + popupWidth > window.innerWidth - 12) {
+                left = window.innerWidth - popupWidth - 12;
+            }
+            if (left < 12) left = 12;
+
+            if (top + popupHeight > window.innerHeight - 12) {
+                top = Math.max(12, rect.top - popupHeight - 8);
+            }
+
+            els.linkActionPopup.style.left = `${left}px`;
+            els.linkActionPopup.style.top = `${top}px`;
+
+            // Otomatis pilih teks URL agar mudah disalin manual bila perlu
+            setTimeout(() => {
+                els.popupUrlInput.focus();
+                els.popupUrlInput.select();
+            }, 30);
+        }
+
+        function closeLinkPopup() {
+            els.linkActionPopup.classList.add('hidden');
+            state.selectedPopupUrl = '';
+        }
+
+        function attachEditorInteractions() {
+            const rows = els.codeContainer.querySelectorAll('.npp-line-row');
+            rows.forEach(row => {
+                row.addEventListener('click', () => {
+                    const activeTab = getActiveTab();
+                    if (!activeTab) return;
+
+                    const lineNum = parseInt(row.getAttribute('data-line'), 10) || 1;
+                    activeTab.activeLine = lineNum;
+
+                    // Hitung perkiraan kolom dari seleksi teks jika ada
+                    let colNum = 1;
+                    const sel = window.getSelection();
+                    if (sel && sel.anchorNode && row.contains(sel.anchorNode)) {
+                        colNum = Math.max(1, (sel.anchorOffset || 0) + 1);
+                    }
+                    activeTab.activeCol = colNum;
+
+                    els.codeContainer.querySelectorAll('.npp-line-row.active-line').forEach(el => {
+                        el.classList.remove('active-line');
+                    });
+                    row.classList.add('active-line');
+
+                    const totalLines = activeTab.content.split(/\r?\n/).length;
+                    updateStatusBar(activeTab.content.length, totalLines, lineNum, colNum);
+                });
+            });
+
+            // Pasang event tekan lama (long-press) dan klik pada setiap link biru
+            const links = els.codeContainer.querySelectorAll('.npp-detected-link');
+            links.forEach(linkEl => {
+                let pressTimer = null;
+                let longPressTriggered = false;
+                let startX = 0;
+                let startY = 0;
+
+                const startPress = (x, y) => {
+                    longPressTriggered = false;
+                    startX = x;
+                    startY = y;
+                    linkEl.classList.add('pressing');
+                    clearTimeout(pressTimer);
+                    pressTimer = setTimeout(() => {
+                        longPressTriggered = true;
+                        linkEl.classList.remove('pressing');
+                        if (navigator.vibrate) {
+                            try { navigator.vibrate(25); } catch (_) {}
+                        }
+                        openLinkPopup(linkEl, x, y);
+                    }, 420);
+                };
+
+                const cancelPress = () => {
+                    clearTimeout(pressTimer);
+                    linkEl.classList.remove('pressing');
+                };
+
+                // Touch events untuk perangkat mobile (long-press)
+                linkEl.addEventListener('touchstart', (e) => {
+                    if (e.touches && e.touches.length === 1) {
+                        const t = e.touches[0];
+                        startPress(t.clientX, t.clientY);
+                    }
+                }, { passive: true });
+
+                linkEl.addEventListener('touchmove', (e) => {
+                    if (e.touches && e.touches.length === 1) {
+                        const t = e.touches[0];
+                        if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) {
+                            cancelPress();
+                        }
+                    }
+                }, { passive: true });
+
+                linkEl.addEventListener('touchend', () => {
+                    cancelPress();
+                });
+
+                linkEl.addEventListener('touchcancel', cancelPress);
+
+                // Mouse events untuk desktop (tekan lama atau klik biasa)
+                linkEl.addEventListener('mousedown', (e) => {
+                    if (e.button === 0) {
+                        startPress(e.clientX, e.clientY);
+                    }
+                });
+
+                linkEl.addEventListener('mouseup', () => {
+                    cancelPress();
+                });
+
+                linkEl.addEventListener('mouseleave', () => {
+                    cancelPress();
+                });
+
+                // Klik cepat juga membuka popup salin agar aman dari navigasi langsung
+                linkEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!longPressTriggered) {
+                        openLinkPopup(linkEl, e.clientX, e.clientY);
+                    }
+                    longPressTriggered = false;
+                });
+
+                // Aksesibilitas keyboard (Enter / Spasi)
+                linkEl.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openLinkPopup(linkEl);
+                    }
+                });
+            });
+        }
+
+        // --- Pembacaan Otomatis ./file.txt dari Folder yang Sama ---
+        function upsertDocumentTab(tabId, fileName, textContent, replaceWelcome = true) {
+            const existingIndex = state.tabs.findIndex(t => t.id === tabId || t.name === fileName);
+            if (existingIndex !== -1) {
+                state.tabs[existingIndex].name = fileName;
+                state.tabs[existingIndex].content = textContent;
+                state.activeTabId = state.tabs[existingIndex].id;
+            } else if (replaceWelcome && state.tabs.length === 1 && state.tabs[0].id === 'tab-welcome') {
+                state.tabs[0] = {
+                    id: tabId,
+                    name: fileName,
+                    content: textContent,
+                    activeLine: 1,
+                    activeCol: 1
+                };
+                state.activeTabId = tabId;
+            } else {
+                state.tabs.push({
+                    id: tabId,
+                    name: fileName,
+                    content: textContent,
+                    activeLine: 1,
+                    activeCol: 1
+                });
+                state.activeTabId = tabId;
+            }
+            renderAll();
+        }
+
+        function showLocalFolderBanner(titleText, descHtml) {
+            if (titleText) els.bannerTitle.innerHTML = titleText;
+            if (descHtml) els.bannerDescription.innerHTML = descHtml;
+            els.localFolderBanner.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function hideLocalFolderBanner() {
+            els.localFolderBanner.classList.add('hidden');
+        }
+
+        async function loadSameFolderTxt(isManualReload = false) {
+            // Jika pengguna sudah pernah memilih folder menggunakan File System Access API, baca ulang dari handle folder tersebut
+            if (state.directoryHandle) {
+                try {
+                    const fileHandle = await state.directoryHandle.getFileHandle('file.txt');
+                    const file = await fileHandle.getFile();
+                    const text = await file.text();
+                    upsertDocumentTab('tab-local-file-txt', file.name, text, true);
+                    hideLocalFolderBanner();
+                    if (isManualReload) showToast('file.txt berhasil dimuat ulang dari folder!');
+                    return;
+                } catch (err) {
+                    showLocalFolderBanner(
+                        'File <code>file.txt</code> tidak ditemukan di dalam folder yang dipilih.',
+                        'Pastikan terdapat file bernama <strong>file.txt</strong> di folder tersebut, atau pilih file secara langsung.'
+                    );
+                    return;
+                }
+            }
+
+            // Cek jika dibuka langsung lewat file:// (browser modern memblokir fetch lokal karena CORS)
+            if (window.location.protocol === 'file:') {
+                showLocalFolderBanner(
+                    'Halaman dibuka langsung via protokol <code>file://</code> — akses otomatis ke <code>./file.txt</code> dibatasi browser.',
+                    'Untuk membaca <code>./file.txt</code> secara otomatis, jalankan server lokal di folder ini (contoh: <code class="px-1 py-0.5 rounded bg-amber-200/70 dark:bg-amber-900 font-mono">python -m http.server</code> atau <strong>VS Code Live Server</strong>), atau klik <strong>Pilih Folder / file.txt</strong> di samping.'
+                );
+                if (isManualReload) {
+                    showToast('Gunakan tombol "Pilih Folder / file.txt" atau server lokal.');
+                }
+                return;
+            }
+
+            // Coba fetch ./file.txt dari direktori yang sama (dengan cache-busting agar selalu versi terbaru)
+            try {
+                const response = await fetch(`./file.txt?t=${Date.now()}`, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const textContent = await response.text();
+                upsertDocumentTab('tab-same-folder-txt', 'file.txt', textContent, true);
+                hideLocalFolderBanner();
+                if (isManualReload) {
+                    showToast('Berhasil memuat ulang ./file.txt!');
+                }
+            } catch (error) {
+                console.warn('Gagal mengambil ./file.txt:', error);
+                showLocalFolderBanner(
+                    'File <code>./file.txt</code> tidak ditemukan atau belum dapat diakses di folder yang sama.',
+                    'Pastikan file bernama <code>file.txt</code> berada di folder yang sama dengan file HTML ini lalu klik <strong>Muat Ulang file.txt</strong>, atau pilih file/folder secara manual di samping.'
+                );
+                if (isManualReload) {
+                    showToast('Gagal memuat ./file.txt. Periksa keberadaan file.');
+                }
+            }
+        }
+
+        // Memilih folder kerja menggunakan File System Access API (Chrome/Edge/Opera) dengan fallback ke <input type="file">
+        async function pickFolderOrFile() {
+            if ('showDirectoryPicker' in window) {
+                try {
+                    const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+                    state.directoryHandle = dirHandle;
+                    try {
+                        const fileHandle = await dirHandle.getFileHandle('file.txt');
+                        const file = await fileHandle.getFile();
+                        const text = await file.text();
+                        upsertDocumentTab('tab-local-file-txt', file.name, text, true);
+                        hideLocalFolderBanner();
+                        showToast(`Berhasil membaca "${file.name}" dari folder "${dirHandle.name}"`);
+                    } catch (notFoundErr) {
+                        // Jika tidak ada file.txt, cari file .txt pertama yang ada di dalam folder tersebut
+                        let foundAnyTxt = false;
+                        for await (const entry of dirHandle.values()) {
+                            if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.txt')) {
+                                const file = await entry.getFile();
+                                const text = await file.text();
+                                upsertDocumentTab('tab-' + entry.name, file.name, text, true);
+                                foundAnyTxt = true;
+                            }
+                        }
+                        if (foundAnyTxt) {
+                            hideLocalFolderBanner();
+                            showToast(`Memuat file .txt dari folder "${dirHandle.name}"`);
+                        } else {
+                            showLocalFolderBanner(
+                                `Tidak ditemukan <code>file.txt</code> di folder <strong>${escapeHtml(dirHandle.name)}</strong>.`,
+                                'Buat atau simpan file bernama <code>file.txt</code> di dalam folder tersebut lalu klik <strong>Muat Ulang file.txt</strong>.'
+                            );
+                        }
+                    }
+                    return;
+                } catch (err) {
+                    // Pengguna membatalkan dialog pemilihan folder
+                    if (err.name === 'AbortError') return;
+                }
+            }
+
+            // Fallback ke input file standar jika showDirectoryPicker tidak didukung (Firefox/Safari/Mobile)
+            els.fileInput.value = '';
+            els.fileInput.click();
+        }
+
+        // --- Pembacaan File .txt Lokal ---
+        function handleFiles(fileList) {
+            if (!fileList || fileList.length === 0) return;
+
+            Array.from(fileList).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const textContent = event.target.result;
+                    const newTabId = 'tab-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+                    upsertDocumentTab(newTabId, file.name, textContent, true);
+                    hideLocalFolderBanner();
+                    showToast(`Berhasil membuka "${file.name}"`);
+                };
+                reader.onerror = () => {
+                    showToast(`Gagal membaca file "${file.name}"`);
+                };
+                reader.readAsText(file, 'UTF-8');
+            });
+        }
+
+        // --- Modal Semua Link ---
+        function openAllLinksModal() {
+            const links = state.currentDetectedLinks;
+            els.modalLinksTitle.textContent = `Daftar Link Terdeteksi (${links.length})`;
+            els.allLinksList.innerHTML = '';
+
+            if (links.length === 0) {
+                els.allLinksList.innerHTML = `
+                    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <p>Tidak ditemukan link (http://, https://, atau www.) dalam dokumen ini.</p>
+                    </div>
+                `;
+            } else {
+                links.forEach((url, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between gap-2 p-2.5 rounded-lg bg-gray-100 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700';
+                    item.innerHTML = `
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <span class="text-[11px] font-mono text-gray-400 shrink-0">${index + 1}.</span>
+                            <span class="font-mono text-blue-600 dark:text-blue-400 truncate select-all">${escapeHtml(url)}</span>
+                        </div>
+                        <button class="copy-single-btn shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 cursor-pointer" data-url="${escapeHtml(url)}">
+                            <i data-lucide="copy" class="w-3 h-3"></i>
+                            <span>Salin</span>
+                        </button>
+                    `;
+                    item.querySelector('.copy-single-btn').addEventListener('click', () => {
+                        copyTextToClipboard(url);
+                    });
+                    els.allLinksList.appendChild(item);
+                });
+            }
+
+            els.allLinksModal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function renderAll() {
+            renderTabs();
+            renderEditor();
+        }
+
+        // --- Event Listeners UI ---
+        document.getElementById('btnReloadSameFolder').addEventListener('click', () => {
+            loadSameFolderTxt(true);
+        });
+
+        document.getElementById('btnPickFolder').addEventListener('click', () => {
+            pickFolderOrFile();
+        });
+
+        document.getElementById('btnBannerPickFolder').addEventListener('click', () => {
+            pickFolderOrFile();
+        });
+
+        document.getElementById('btnDismissBanner').addEventListener('click', () => {
+            hideLocalFolderBanner();
+        });
+
+        document.getElementById('btnOpenFile').addEventListener('click', () => {
+            els.fileInput.value = '';
+            els.fileInput.click();
+        });
+
+        els.fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        document.getElementById('btnNewSample').addEventListener('click', () => {
+            const newId = 'tab-sample-' + Date.now();
+            state.tabs.push({
+                id: newId,
+                name: `catatan_${state.tabs.length + 1}.txt`,
+                content: DEFAULT_SAMPLE_CONTENT,
+                activeLine: 1,
+                activeCol: 1
+            });
+            state.activeTabId = newId;
+            renderAll();
+        });
+
+        // Toggle Word Wrap
+        const btnWordWrap = document.getElementById('btnWordWrap');
+        btnWordWrap.addEventListener('click', () => {
+            state.isWordWrap = !state.isWordWrap;
+            btnWordWrap.classList.toggle('active', state.isWordWrap);
+            els.editorWrapper.classList.toggle('word-wrap-enabled', state.isWordWrap);
+        });
+
+        // Zoom In / Out
+        document.getElementById('btnZoomIn').addEventListener('click', () => {
+            if (state.fontSize < 24) {
+                state.fontSize += 1;
+                els.editorWrapper.style.fontSize = `${state.fontSize}px`;
+                els.editorWrapper.style.lineHeight = `${Math.round(state.fontSize * 1.5)}px`;
+            }
+        });
+
+        document.getElementById('btnZoomOut').addEventListener('click', () => {
+            if (state.fontSize > 10) {
+                state.fontSize -= 1;
+                els.editorWrapper.style.fontSize = `${state.fontSize}px`;
+                els.editorWrapper.style.lineHeight = `${Math.round(state.fontSize * 1.5)}px`;
+            }
+        });
+
+        // Toggle Dark / Light Mode Notepad++
+        document.getElementById('btnThemeToggle').addEventListener('click', () => {
+            state.isDark = !state.isDark;
+            els.appBody.classList.toggle('dark-theme', state.isDark);
+            const icon = document.getElementById('themeIcon');
+            const label = document.getElementById('themeLabel');
+            icon.setAttribute('data-lucide', state.isDark ? 'sun' : 'moon');
+            label.textContent = state.isDark ? 'Mode Terang' : 'Mode Gelap';
+            lucide.createIcons();
+        });
+
+        // Pencarian Teks (Find)
+        document.getElementById('btnToggleFind').addEventListener('click', () => {
+            els.findBar.classList.toggle('hidden');
+            if (!els.findBar.classList.contains('hidden')) {
+                els.findInput.focus();
+            } else {
+                state.searchQuery = '';
+                els.findInput.value = '';
+                renderEditor();
+            }
+        });
+
+        document.getElementById('btnCloseFind').addEventListener('click', () => {
+            els.findBar.classList.add('hidden');
+            state.searchQuery = '';
+            els.findInput.value = '';
+            renderEditor();
+        });
+
+        els.findInput.addEventListener('input', (e) => {
+            state.searchQuery = e.target.value;
+            renderEditor();
+        });
+
+        // Popup Link Controls
+        document.getElementById('btnCopyUrlAction').addEventListener('click', () => {
+            if (state.selectedPopupUrl) {
+                copyTextToClipboard(state.selectedPopupUrl);
+                closeLinkPopup();
+            }
+        });
+
+        document.getElementById('btnCloseLinkPopup').addEventListener('click', closeLinkPopup);
+
+        // Tutup popup jika klik di luar popup
+        document.addEventListener('click', (e) => {
+            if (!els.linkActionPopup.classList.contains('hidden')) {
+                if (!els.linkActionPopup.contains(e.target) && !e.target.closest('.npp-detected-link')) {
+                    closeLinkPopup();
+                }
+            }
+        });
+
+        // Modal Semua Link Controls
+        document.getElementById('btnShowAllLinks').addEventListener('click', openAllLinksModal);
+        document.getElementById('btnCloseAllLinksModal').addEventListener('click', () => els.allLinksModal.classList.add('hidden'));
+        document.getElementById('btnCloseModalFooter').addEventListener('click', () => els.allLinksModal.classList.add('hidden'));
+        document.getElementById('btnCopyAllLinks').addEventListener('click', () => {
+            if (state.currentDetectedLinks.length > 0) {
+                copyTextToClipboard(state.currentDetectedLinks.join('\n'));
+            } else {
+                showToast('Tidak ada link untuk disalin.');
+            }
+        });
+
+        // Shortcut Keyboard (Ctrl+O untuk buka file, Ctrl+F untuk cari)
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+                e.preventDefault();
+                els.fileInput.click();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                els.findBar.classList.remove('hidden');
+                els.findInput.focus();
+            }
+            if (e.key === 'Escape') {
+                closeLinkPopup();
+                els.allLinksModal.classList.add('hidden');
+            }
+        });
+
+        // --- Drag & Drop File Support ---
+        let dragCounter = 0;
+        window.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            els.dropOverlay.classList.remove('hidden');
+        });
+
+        window.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter <= 0) {
+                dragCounter = 0;
+                els.dropOverlay.classList.add('hidden');
+            }
+        });
+
+        window.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            els.dropOverlay.classList.add('hidden');
+            if (e.dataTransfer && e.dataTransfer.files) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        // --- Inisialisasi Awal ---
+        window.addEventListener('DOMContentLoaded', () => {
+            renderAll();
+            loadSameFolderTxt(false);
+        });
+    </script>
+</body>
+</html>
